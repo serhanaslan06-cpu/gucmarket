@@ -1,0 +1,4 @@
+@import "tailwindcss";
+:root{--navy:#0d1830;--blue:#1769ff;--gold:#ffbf1f;--ink:#13213a;--muted:#66738b;--line:#dfe6f0;--bg:#f5f8fc}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif} button,input,select,textarea{font:inherit}.container{max-width:1440px;margin:auto;padding:0 28px}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 4px 18px rgba(13,24,48,.05)}
