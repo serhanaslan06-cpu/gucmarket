@@ -2,7 +2,7 @@ export type Criterion={
  key:string;label:string;type:'select'|'number'|'boolean'|'multiselect';
  unit?:string;values?:string[];filterable?:boolean;
  dependsOn?:string;dependentValues?:Record<string,string[]>;
- filterMode?:'exact'|'range';
+ filterMode?:'exact'|'range'; optionSource?:'admin'|'product';
 };
 
 export const categories=[
@@ -14,9 +14,6 @@ export const categories=[
  {name:'Akü Kabinleri',desc:'Raf ve kabin çözümleri',icon:'▤'}
 ];
 
-const phase1Voltage=['110','220','230','240'];
-const phase3Voltage=['380-400'];
-
 export const categoryCriteria:Record<string,Criterion[]>={
  'UPS / KGK':[
  {key:'upsType',label:'UPS Tipi',type:'select',values:['Statik','Dinamik']},
@@ -24,9 +21,9 @@ export const categoryCriteria:Record<string,Criterion[]>={
  {key:'powerKva',label:'Güç',type:'number',unit:'kVA'},
  {key:'activePowerKw',label:'Aktif Güç',type:'number',unit:'kW'},
  {key:'inputPhase',label:'Giriş Fazı',type:'select',values:['1F','3F']},
- {key:'inputVoltageRange',label:'Giriş Gerilimi',type:'select',dependsOn:'inputPhase',dependentValues:{'1F':phase1Voltage,'3F':phase3Voltage},filterMode:'range'},
+ {key:'inputVoltageRange',label:'Giriş Gerilimi',type:'select',dependsOn:'inputPhase',filterMode:'exact',optionSource:'product'},
  {key:'outputPhase',label:'Çıkış Fazı',type:'select',values:['1F','3F']},
- {key:'outputVoltageRange',label:'Çıkış Gerilimi',type:'select',dependsOn:'outputPhase',dependentValues:{'1F':phase1Voltage,'3F':phase3Voltage},filterMode:'range'},
+ {key:'outputVoltageRange',label:'Çıkış Gerilimi',type:'select',dependsOn:'outputPhase',filterMode:'exact',optionSource:'product'},
  {key:'frequency',label:'Frekans',type:'select',values:['50 Hz','60 Hz','400 Hz']},
  {key:'thdi',label:'THDi',type:'number',unit:'%'},
  {key:'thdv',label:'THDv',type:'number',unit:'%'},
