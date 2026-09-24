@@ -12,6 +12,7 @@ export default function Admin(){
  const [name,setName]=useState('');
  const [type,setType]=useState<Criterion['type']>('select');
  const [newCategory,setNewCategory]=useState('');
+ const [addingCategory,setAddingCategory]=useState(false);
  const [product,setProduct]=useState<ProductForm>({name:'',brand:'',cat:initialCategories[0].name,price:'',city:'',seller:'',spec:'',technical:{}});
  const [saved,setSaved]=useState(false);
 
@@ -58,18 +59,22 @@ export default function Admin(){
    <div className="card" style={{padding:22,marginTop:25}}>
      <h2>Ürün Kategorileri</h2>
      <p style={{color:'var(--muted)'}}>Admin kategorileri ve her kategoriye ait teknik kriterleri yönetir.</p>
-     <div style={{display:'flex',gap:10}}>
+     <div style={{display:'flex',gap:10,alignItems:'center'}}>
+       <select value={selected} onChange={e=>setSelected(e.target.value)} style={{flex:1,padding:11}}>
+         {categories.map(c=><option key={c.name} value={c.name}>{c.name}</option>)}
+       </select>
+       <button type="button" onClick={()=>setAddingCategory(v=>!v)} style={{padding:'11px 18px'}}>+ Yeni Kategori</button>
+     </div>
+     {addingCategory&&<div style={{display:'flex',gap:10,marginTop:12,padding:12,background:'#f8fafc',borderRadius:10}}>
        <input value={newCategory} onChange={e=>setNewCategory(e.target.value)} placeholder="Yeni kategori adı" style={{flex:1,padding:11}}/>
-       <button onClick={addCategory} style={{padding:'11px 18px'}}>Kategori Ekle</button>
-     </div>
-     <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:15}}>
-       {categories.map(c=><button key={c.name} onClick={()=>setSelected(c.name)} style={{padding:'9px 12px',fontWeight:selected===c.name?800:400}}>{c.icon} {c.name}</button>)}
-     </div>
+       <button type="button" onClick={()=>{addCategory();setAddingCategory(false)}} style={{padding:'11px 18px'}}>Kategoriyi Oluştur</button>
+     </div>}
+     <p style={{color:'var(--muted)',marginTop:10}}>Mevcut kategoriler yukarıdaki listeden seçilir. Yeni kategori oluşturulduğunda teknik özellikleri boş başlar; aşağıdaki alandan özellik adlarını Admin manuel olarak tanımlar.</p>
    </div>
 
    <div className="card" style={{padding:22,marginTop:25}}>
      <h2>{selected} — Teknik Özellikler</h2>
-     <p style={{color:'var(--muted)'}}>Admin'in tanımladığı kriterler, tedarikçi ürün girişinde otomatik kullanılacaktır.</p>
+     <p style={{color:'var(--muted)'}}>Bu kategori için Admin'in tanımladığı kriterler burada tutulur. Yeni kategorilerde özellik adları ve veri tipleri manuel olarak eklenir.</p>
      <div style={{display:'flex',gap:10,margin:'18px 0'}}>
        <input value={name} onChange={e=>setName(e.target.value)} placeholder="Yeni teknik özellik adı" style={{flex:1,padding:11}}/>
        <select value={type} onChange={e=>setType(e.target.value as Criterion['type'])} style={{padding:11}}><option value="select">Seçim</option><option value="number">Sayısal</option><option value="boolean">Evet/Hayır</option><option value="multiselect">Çoklu seçim</option></select>
@@ -80,7 +85,7 @@ export default function Admin(){
 
    <div className="card" style={{padding:22,marginTop:25}}>
      <h2>Ürün Ekle</h2>
-     <p style={{color:'var(--muted)'}}>Bu aşama test amaçlıdır. Ürün, tarayıcıdaki yerel test alanına kaydedilir; henüz veritabanına yazılmaz.</p>
+     <p style={{color:'var(--muted)'}}>Test aşamasında ürün kaydı tarayıcıdaki yerel test alanına yazılır. Kalıcı veritabanı bağlantısını sonraki adımda kuracağız.</p>
      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
        <input placeholder="Ürün adı / model" value={product.name} onChange={e=>setProduct(v=>({...v,name:e.target.value}))} style={{padding:11}}/>
        <input placeholder="Marka" value={product.brand} onChange={e=>setProduct(v=>({...v,brand:e.target.value}))} style={{padding:11}}/>
