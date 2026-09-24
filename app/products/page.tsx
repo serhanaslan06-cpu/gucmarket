@@ -21,17 +21,20 @@ export default function Products(){
    setFilter(key,{...criteriaFilters[key],values});
  };
  const getValues=(c:Criterion)=>{
-   if(c.optionSource==='product'){
-     const candidates=products.filter(p=>cat==='Tüm kategoriler'||p.cat===cat).filter(p=>{
-       if(!c.dependsOn)return true;
-       const selected=criteriaFilters[c.dependsOn]?.values?.[0];
-       if(!selected)return false;
-       const technical=(p as typeof p & {technical?:Record<string,unknown>}).technical||{};
-       return String(technical[c.dependsOn]||'')===selected;
-     });
-     return [...new Set(candidates.map(p=>String((p as typeof p & {technical?:Record<string,unknown>}).technical?.[c.key]??'')).filter(Boolean))];
-   }
-   return c.values||[];
+   if(c.type==='number') return [];
+   const candidates=products.filter(p=>cat==='Tüm kategoriler'||p.cat===cat).filter(p=>{
+     if(!c.dependsOn)return true;
+     const selected=criteriaFilters[c.dependsOn]?.values?.[0];
+     if(!selected)return false;
+     const technical=(p as typeof p & {technical?:Record<string,unknown>}).technical||{};
+     return String(technical[c.dependsOn]||'')===selected;
+   });
+   const values=candidates.flatMap(p=>{
+     const technical=(p as typeof p & {technical?:Record<string,unknown>}).technical||{};
+     const value=technical[c.key];
+     return Array.isArray(value)?value.map(String):value===undefined||value===null?[]:[String(value)];
+   });
+   return [...new Set(values)];
  };
 
  const filtered=useMemo(()=>products.filter(p=>{
