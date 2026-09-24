@@ -6,13 +6,6 @@ import ProductCard from '@/components/ProductCard';
 
 type FilterValue={min?:string;max?:string;values?:string[]};
 
-function rangeMatches(productRange:string,selectedRange:string){
- const parse=(v:string)=>v.replace('V','').split('-').map(Number);
- const [pMin,pMax]=parse(productRange);
- const [sMin,sMax]=parse(selectedRange);
- return Number.isFinite(pMin)&&Number.isFinite(pMax)&&Number.isFinite(sMin)&&Number.isFinite(sMax)&&pMin<=sMax&&pMax>=sMin;
-}
-
 export default function Products(){
  const [query,setQuery]=useState('');
  const [cat,setCat]=useState('Tüm kategoriler');
@@ -28,9 +21,15 @@ export default function Products(){
    setFilter(key,{...criteriaFilters[key],values});
  };
  const getValues=(c:Criterion)=>{
-   if(c.dependsOn){
-     const selected=criteriaFilters[c.dependsOn]?.values?.[0];
-     return selected ? (c.dependentValues?.[selected]||[]) : [];
+   if(c.optionSource==='product'){
+     const candidates=products.filter(p=>cat==='Tüm kategoriler'||p.cat===cat).filter(p=>{
+       if(!c.dependsOn)return true;
+       const selected=criteriaFilters[c.dependsOn]?.values?.[0];
+       if(!selected)return false;
+       const technical=(p as typeof p & {technical?:Record<string,unknown>}).technical||{};
+       return String(technical[c.dependsOn]||'')===selected;
+     });
+     return [...new Set(candidates.map(p=>String((p as typeof p & {technical?:Record<string,unknown>}).technical?.[c.key]??'')).filter(Boolean))];
    }
    return c.values||[];
  };
@@ -51,10 +50,7 @@ export default function Products(){
        if(filter.max!==undefined&&filter.max!==''&&numeric>Number(filter.max))return false;
        return true;
      }
-     if(c.filterMode==='range'){
-       const selected=filter.values?.[0]||'';
-       return !selected||rangeMatches(String(value),selected);
-     }
+     
      if(c.type==='multiselect'){
        const selected=filter.values||[]; if(selected.length===0)return true;
        const productValues=Array.isArray(value)?value:[String(value)];
