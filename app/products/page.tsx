@@ -1,6 +1,6 @@
 'use client';
 
-import {useMemo,useState} from 'react';
+import {useEffect,useMemo,useState} from 'react';
 import {products,categories,categoryCriteria,Criterion} from '@/lib/data';
 import ProductCard from '@/components/ProductCard';
 
@@ -11,8 +11,10 @@ export default function Products(){
  const [cat,setCat]=useState('Tüm kategoriler');
  const [brand,setBrand]=useState('Tüm markalar');
  const [criteriaFilters,setCriteriaFilters]=useState<Record<string,FilterValue>>({});
+ const [allProducts,setAllProducts]=useState(products);
 
- const brands=[...new Set(products.map(p=>p.brand))];
+ useEffect(()=>{try{const saved=JSON.parse(localStorage.getItem('gucmarket_products')||'[]');if(Array.isArray(saved)&&saved.length)setAllProducts([...products,...saved]);}catch{}},[]);
+ const brands=[...new Set(allProducts.map(p=>p.brand))];
  const activeCriteria=cat==='Tüm kategoriler'?[]:(categoryCriteria[cat]||[]).filter(c=>c.filterable!==false);
  const setFilter=(key:string,value:FilterValue)=>setCriteriaFilters(v=>({...v,[key]:value}));
  const toggleMulti=(key:string,value:string)=>{
@@ -22,7 +24,7 @@ export default function Products(){
  };
  const getValues=(c:Criterion)=>{
    if(c.type==='number') return [];
-   const candidates=products.filter(p=>cat==='Tüm kategoriler'||p.cat===cat).filter(p=>{
+   const candidates=allProducts.filter(p=>cat==='Tüm kategoriler'||p.cat===cat).filter(p=>{
      if(!c.dependsOn)return true;
      const selected=criteriaFilters[c.dependsOn]?.values?.[0];
      if(!selected)return false;
@@ -37,7 +39,7 @@ export default function Products(){
    return [...new Set(values)];
  };
 
- const filtered=useMemo(()=>products.filter(p=>{
+ const filtered=useMemo(()=>allProducts.filter(p=>{
    const q=query.toLowerCase();
    const text=(p.name+' '+p.brand+' '+p.spec).toLowerCase();
    if(q&&!text.includes(q))return false;
@@ -62,7 +64,7 @@ export default function Products(){
      const selected=filter.values?.[0]||'';
      return !selected||String(value)===selected;
    });
- }),[query,cat,brand,criteriaFilters,activeCriteria]);
+ }),[query,cat,brand,criteriaFilters,activeCriteria,allProducts]);
 
  const renderCriterion=(c:Criterion)=>{
    const filter=criteriaFilters[c.key]||{};
