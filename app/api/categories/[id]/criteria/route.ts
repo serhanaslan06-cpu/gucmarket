@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-const typeMap: Record<string, 'TEXT' | 'NUMBER' | 'BOOLEAN' | 'SELECT' | 'MULTISELECT'> = { text: 'TEXT', number: 'NUMBER', boolean: 'BOOLEAN', select: 'SELECT', multiselect: 'MULTISELECT' };\nconst mapType = (type: string) => typeMap[type];
+const typeMap: Record<string, 'TEXT' | 'NUMBER' | 'BOOLEAN' | 'SELECT' | 'MULTISELECT'> = { text: 'TEXT', number: 'NUMBER', boolean: 'BOOLEAN', select: 'SELECT', multiselect: 'MULTISELECT' };
+const mapType = (type: string) => typeMap[type];
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
