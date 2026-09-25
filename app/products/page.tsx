@@ -25,7 +25,7 @@ export default function Products(){
      if(Array.isArray(cats)&&cats.length)setDbCategories(cats);
      if(Array.isArray(data))setAllProducts(data.map((p:any)=>({
        id:p.id,name:p.name,brand:p.brand?.name||'',cat:p.category?.name||'',spec:p.description||'',
-       price:p.price?\`\${p.price} \${p.currency||'TRY'}\`:'Fiyat için teklif al',
+       price:p.price?String(p.price)+' '+(p.currency||'TRY'):'Fiyat için teklif al',
        city:p.city||'',seller:p.supplier?.companyName||'',
        technical:Object.fromEntries((p.technical||[]).map((v:any)=>[v.criterion?.key,v.value]))
      })));
