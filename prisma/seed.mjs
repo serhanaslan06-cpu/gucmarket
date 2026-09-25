@@ -122,7 +122,7 @@ async function main() {
     const category = categoryMap.get(categoryName);
     if (!category) continue;
     for (let i = 0; i < criteria.length; i++) {
-      const [key,label,dataType,unit,options] = criteria;
+      const [key,label,dataType,unit,options] = criteria[i];
       const criterion = await prisma.technicalCriterion.upsert({
         where: { categoryId_key: { categoryId: category.id, key } },
         update: { label, dataType, unit: unit ?? null, sortOrder: i, active: true, filterable: true, comparable: true, aiMatching: true },
