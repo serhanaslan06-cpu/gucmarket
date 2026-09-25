@@ -7,6 +7,8 @@ const mapType = (type: string) => typeMap[type];
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
   const body = await request.json();
+  const category = await prisma.category.findUnique({ where: { id }, select: { id: true, active: true } });
+  if (!category || !category.active) return NextResponse.json({ error: 'Kategori bulunamadı veya pasif.' }, { status: 404 });
   const label = String(body.label ?? '').trim();
   const key = String(body.key ?? label).trim().toLocaleLowerCase('tr-TR').replace(/ı/g,'i').replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ş/g,'s').replace(/ö/g,'o').replace(/ç/g,'c').replace(/[^a-z0-9]+/g,'_');
   const dataType = mapType(String(body.type ?? 'text'));
@@ -14,6 +16,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const options = Array.isArray(body.options) ? body.options.map(String).map((x: string) => x.trim()).filter(Boolean) : [];
   if ((dataType === 'SELECT' || dataType === 'MULTISELECT') && options.length === 0) return NextResponse.json({ error: 'Seçim alanları için en az bir seçenek gereklidir.' }, { status: 400 });
   try {
+    const existing = await prisma.technicalCriterion.findUnique({ where: { categoryId_key: { categoryId: id, key } }, select: { id: true } });
+    if (existing) return NextResponse.json({ error: 'Bu teknik özellik bu kategoride zaten mevcut.' }, { status: 409 });
     const count = await prisma.technicalCriterion.count({ where: { categoryId: id } });
     const criterion = await prisma.technicalCriterion.create({
       data: {
