@@ -1,5 +1,5 @@
 export type Criterion={
- key:string;label:string;type:'select'|'number'|'boolean'|'multiselect';
+ key:string;label:string;type:'text'|'select'|'number'|'boolean'|'multiselect';
  unit?:string;values?:string[];filterable?:boolean;
  dependsOn?:string;dependentValues?:Record<string,string[]>;
  filterMode?:'exact'|'range'; optionSource?:'admin'|'product';
