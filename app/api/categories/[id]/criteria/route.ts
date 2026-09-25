@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-const mapType = (type: string) => ({ text: 'TEXT', number: 'NUMBER', boolean: 'BOOLEAN', select: 'SELECT', multiselect: 'MULTISELECT' } as const)[type as keyof ReturnType<typeof mapType>];
+const typeMap: Record<string, 'TEXT' | 'NUMBER' | 'BOOLEAN' | 'SELECT' | 'MULTISELECT'> = { text: 'TEXT', number: 'NUMBER', boolean: 'BOOLEAN', select: 'SELECT', multiselect: 'MULTISELECT' };\nconst mapType = (type: string) => typeMap[type];
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
