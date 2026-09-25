@@ -13,6 +13,8 @@ export default function Admin(){
  const [newCategoryDesc,setNewCategoryDesc]=useState('');
  const [newCriterionName,setNewCriterionName]=useState('');
  const [newCriterionType,setNewCriterionType]=useState<Criterion['type']>('select');
+ const [newCriterionUnit,setNewCriterionUnit]=useState('');
+ const [newCriterionOptions,setNewCriterionOptions]=useState<string[]>(['']);
  const [categorySaved,setCategorySaved]=useState(false);
  const [criterionSaved,setCriterionSaved]=useState(false);
  const [productSaved,setProductSaved]=useState(false);
@@ -39,12 +41,13 @@ export default function Admin(){
    const label=newCriterionName.trim();
    if(!label)return;
    const key=label.toLowerCase().replace(/[^a-z0-9]+/g,'_');
-   const criterion:Criterion={
-     key,label,type:newCriterionType,
-     values:newCriterionType==='boolean'?['Var','Yok']:undefined
-   };
+   const values=newCriterionType==='boolean'?['Evet','Hayır']:(newCriterionType==='select'||newCriterionType==='multiselect')?newCriterionOptions.map(v=>v.trim()).filter(Boolean):undefined;
+   if((newCriterionType==='select'||newCriterionType==='multiselect')&&(!values||values.length===0))return;
+   const criterion:Criterion={key,label,type:newCriterionType,unit:newCriterionUnit.trim()||undefined,values};
    setCriteria(v=>({...v,[selectedCategory]:[...(v[selectedCategory]||[]),criterion]}));
    setNewCriterionName('');
+   setNewCriterionUnit('');
+   setNewCriterionOptions(['']);
    setCriterionSaved(true);
  };
 
@@ -92,11 +95,20 @@ export default function Admin(){
      <h2>2. Teknik Formu Oluştur</h2>
      <p style={{color:'var(--muted)'}}>Admin, her kategori için ürün ilanında kullanılacak teknik alanları tanımlar.</p>
      <label style={{display:'grid',gap:5,maxWidth:520}}><span>Kategori</span><select value={selectedCategory} onChange={e=>setSelectedCategory(e.target.value)} style={{padding:11}}>{categories.map(c=><option key={c.name}>{c.name}</option>)}</select></label>
-     <div style={{display:'grid',gridTemplateColumns:'1fr 180px auto',gap:10,marginTop:15,alignItems:'end'}}>
+     <div style={{display:'grid',gridTemplateColumns:'1fr 180px 1fr auto',gap:10,marginTop:15,alignItems:'end'}}>
        <label style={{display:'grid',gap:5}}><span>Özellik Adı</span><input value={newCriterionName} onChange={e=>setNewCriterionName(e.target.value)} placeholder="Örn. Yakıt Tipi" style={{padding:11}}/></label>
-       <label style={{display:'grid',gap:5}}><span>Veri Tipi</span><select value={newCriterionType} onChange={e=>setNewCriterionType(e.target.value as Criterion['type'])} style={{padding:11}}><option value="select">Seçim</option><option value="number">Sayısal</option><option value="boolean">Evet / Hayır</option><option value="multiselect">Çoklu Seçim</option></select></label>
+       <label style={{display:'grid',gap:5}}><span>Veri Tipi</span><select value={newCriterionType} onChange={e=>setNewCriterionType(e.target.value as Criterion['type'])} style={{padding:11}}><option value="text">Metin</option><option value="select">Tekli Seçim</option><option value="number">Sayısal</option><option value="boolean">Evet / Hayır</option><option value="multiselect">Çoklu Seçim</option></select></label>
+       <label style={{display:'grid',gap:5}}><span>Birim (opsiyonel)</span><input value={newCriterionUnit} onChange={e=>setNewCriterionUnit(e.target.value)} placeholder="Örn. kVA, V, Ah" style={{padding:11}}/></label>
        <button type="button" onClick={addCriterion} style={{padding:'11px 18px'}}>Özellik Ekle</button>
      </div>
+     {(newCriterionType==='select'||newCriterionType==='multiselect')&&<div style={{marginTop:15}}>
+       <div style={{fontWeight:700,marginBottom:8}}>Seçenekler</div>
+       {newCriterionOptions.map((value,i)=><div key={i} style={{display:'flex',gap:8,marginBottom:8}}>
+         <input value={value} onChange={e=>setNewCriterionOptions(v=>v.map((x,j)=>j===i?e.target.value:x))} placeholder={`Seçenek ${i+1}`} style={{padding:10,flex:1}}/>
+         <button type="button" onClick={()=>setNewCriterionOptions(v=>v.length>1?v.filter((_,j)=>j!==i):v)} disabled={newCriterionOptions.length===1}>Sil</button>
+       </div>)}
+       <button type="button" onClick={()=>setNewCriterionOptions(v=>[...v,''])}>+ Seçenek Ekle</button>
+     </div>}
      {criterionSaved&&<p style={{fontWeight:700}}>✓ Teknik alan forma eklendi.</p>}
      {(criteria[selectedCategory]||[]).map(c=><div key={c.key} style={{display:'flex',justifyContent:'space-between',padding:10,borderBottom:'1px solid #edf0f5'}}><span>{c.label}</span><span style={{color:'var(--muted)'}}>{c.type}</span></div>)}
    </section>
