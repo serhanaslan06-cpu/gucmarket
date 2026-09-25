@@ -1,0 +1,127 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CriterionDataType {
+  TEXT
+  NUMBER
+  BOOLEAN
+  SELECT
+  MULTISELECT
+}
+
+enum ProductStatus {
+  DRAFT
+  PENDING_REVIEW
+  CHANGES_REQUESTED
+  REJECTED
+  APPROVED
+  PUBLISHED
+}
+
+model Category {
+  id          String     @id @default(cuid())
+  name        String
+  slug        String     @unique
+  description String?
+  icon        String?
+  active      Boolean    @default(true)
+  sortOrder   Int        @default(0)
+  parentId    String?
+  parent      Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children    Category[] @relation("CategoryTree")
+  criteria    TechnicalCriterion[]
+  products    Product[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([parentId])
+  @@index([active, sortOrder])
+}
+
+model TechnicalCriterion {
+  id              String            @id @default(cuid())
+  categoryId      String
+  category        Category          @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  key             String
+  label           String
+  dataType        CriterionDataType
+  unit            String?
+  required        Boolean           @default(false)
+  filterable      Boolean           @default(true)
+  comparable      Boolean           @default(true)
+  aiMatching      Boolean           @default(true)
+  sortOrder       Int               @default(0)
+  active          Boolean           @default(true)
+  options         CriterionOption[]
+  values          ProductTechnicalValue[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@unique([categoryId, key])
+  @@index([categoryId, sortOrder])
+}
+
+model CriterionOption {
+  id          String              @id @default(cuid())
+  criterionId String
+  criterion   TechnicalCriterion  @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+  label       String
+  value       String
+  sortOrder   Int                 @default(0)
+  active      Boolean             @default(true)
+
+  @@unique([criterionId, value])
+  @@index([criterionId, sortOrder])
+}
+
+model Supplier {
+  id        String    @id @default(cuid())
+  companyName String
+  slug      String    @unique
+  active    Boolean   @default(true)
+  products  Product[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Product {
+  id          String            @id @default(cuid())
+  categoryId  String
+  supplierId  String
+  name        String
+  brand       String?
+  model       String?
+  slug        String            @unique
+  description String?
+  price       Decimal?          @db.Decimal(18, 2)
+  currency    String            @default("TRY")
+  city        String?
+  status      ProductStatus     @default(DRAFT)
+  category    Category           @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  supplier    Supplier           @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  technical   ProductTechnicalValue[]
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([categoryId, status])
+  @@index([supplierId, status])
+  @@index([brand])
+}
+
+model ProductTechnicalValue {
+  id          String             @id @default(cuid())
+  productId   String
+  criterionId String
+  value       String
+  product     Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  criterion   TechnicalCriterion @relation(fields: [criterionId], references: [id], onDelete: Restrict)
+
+  @@unique([productId, criterionId])
+  @@index([criterionId, value])
+}
