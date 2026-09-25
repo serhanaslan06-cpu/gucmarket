@@ -1,4 +1,4 @@
-import { PrismaClient, CriterionDataType } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -109,10 +109,11 @@ async function main() {
 
     for (let j = 0; j < (subcategories[name] ?? []).length; j++) {
       const childName = subcategories[name][j];
+      const childSlug = `${slugify(name)}-${slugify(childName)}`;
       await prisma.category.upsert({
-        where: { slug: slugify(childName) },
+        where: { slug: childSlug },
         update: { name: childName, parentId: category.id, active: true, sortOrder: j },
-        create: { name: childName, slug: slugify(childName), parentId: category.id, sortOrder: j },
+        create: { name: childName, slug: childSlug, parentId: category.id, sortOrder: j },
       });
     }
   }
@@ -125,7 +126,7 @@ async function main() {
       const criterion = await prisma.technicalCriterion.upsert({
         where: { categoryId_key: { categoryId: category.id, key } },
         update: { label, dataType, unit: unit ?? null, sortOrder: i, active: true, filterable: true, comparable: true, aiMatching: true },
-        create: { categoryId: category.id, key, label, dataType: dataType as CriterionDataType, unit: unit ?? null, sortOrder: i },
+        create: { categoryId: category.id, key, label, dataType, unit: unit ?? null, sortOrder: i },
       });
       if (options?.length) {
         for (let j = 0; j < options.length; j++) {
