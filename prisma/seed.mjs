@@ -124,7 +124,7 @@ async function main() {
       const [key,label,dataType,unit,options] = criteria;
       const criterion = await prisma.technicalCriterion.upsert({
         where: { categoryId_key: { categoryId: category.id, key } },
-        update: { label, dataType: dataType as CriterionDataType, unit: unit ?? null, sortOrder: i, active: true, filterable: true, comparable: true, aiMatching: true },
+        update: { label, dataType, unit: unit ?? null, sortOrder: i, active: true, filterable: true, comparable: true, aiMatching: true },
         create: { categoryId: category.id, key, label, dataType: dataType as CriterionDataType, unit: unit ?? null, sortOrder: i },
       });
       if (options?.length) {
