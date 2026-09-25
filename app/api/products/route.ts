@@ -16,6 +16,8 @@ export async function POST(request: Request) {
   const categoryId = String(body.categoryId ?? '');
   const supplierName = String(body.supplierName ?? '').trim();
   if (!name || !categoryId || !supplierName) return NextResponse.json({ error: 'Ürün adı, kategori ve tedarikçi zorunludur.' }, { status: 400 });
+  const category = await prisma.category.findUnique({ where: { id: categoryId }, select: { id: true, active: true } });
+  if (!category || !category.active) return NextResponse.json({ error: 'Kategori bulunamadı veya pasif.' }, { status: 400 });
   try {
     const supplierSlug = supplierName.toLocaleLowerCase('tr-TR').replace(/ı/g,'i').replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ş/g,'s').replace(/ö/g,'o').replace(/ç/g,'c').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
     const supplier = await prisma.supplier.upsert({ where: { slug: supplierSlug }, update: { companyName: supplierName }, create: { companyName: supplierName, slug: supplierSlug } });
@@ -31,6 +33,9 @@ export async function POST(request: Request) {
     const technical = body.technical && typeof body.technical === 'object' ? body.technical : {};
     const criteria = await prisma.technicalCriterion.findMany({ where: { categoryId, active: true } });
     const criterionByKey = new Map(criteria.map(c => [c.key, c]));
+    for (const key of Object.keys(technical)) {
+      if (!criterionByKey.has(key)) return NextResponse.json({ error: `Geçersiz teknik özellik: ${key}` }, { status: 400 });
+    }
     const values = Object.entries(technical).flatMap(([key, raw]) => {
       const criterion = criterionByKey.get(key);
       if (!criterion || raw === '' || raw == null) return [];
