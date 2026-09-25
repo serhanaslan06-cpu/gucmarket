@@ -6,14 +6,18 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "prebuild": "prisma generate",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:seed": "prisma db seed"
   },
   "dependencies": {
     "next": "latest",
     "react": "latest",
     "react-dom": "latest",
     "lucide-react": "latest",
-    "@prisma/client": "latest"
+    "@prisma/client": "6.16.2"
   },
   "devDependencies": {
     "typescript": "latest",
@@ -23,6 +27,9 @@
     "tailwindcss": "latest",
     "@tailwindcss/postcss": "latest",
     "postcss": "latest",
-    "prisma": "latest"
+    "prisma": "6.16.2"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.mjs"
   }
 }
