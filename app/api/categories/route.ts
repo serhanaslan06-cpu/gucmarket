@@ -5,9 +5,41 @@ export async function GET() {
   const categories = await prisma.category.findMany({
     where: { active: true },
     orderBy: [{ parentId: 'asc' }, { sortOrder: 'asc' }, { name: 'asc' }],
-    include: { criteria: { where: { active: true }, include: { options: { where: { active: true }, orderBy: { sortOrder: 'asc' } } }, orderBy: { sortOrder: 'asc' } } },
+    include: {
+      criteria: {
+        where: { active: true },
+        include: { options: { where: { active: true }, orderBy: { sortOrder: 'asc' } } },
+        orderBy: { sortOrder: 'asc' },
+      },
+    },
   });
-  return NextResponse.json(categories);
+
+  const byId = new Map(categories.map(category => [category.id, category]));
+  const withInheritedCriteria = categories.map(category => {
+    const chain: typeof categories = [];
+    let current: typeof category | undefined = category;
+
+    while (current) {
+      chain.unshift(current);
+      current = current.parentId ? byId.get(current.parentId) : undefined;
+    }
+
+    const criteriaByKey = new Map<string, (typeof category.criteria)[number]>();
+    for (const item of chain) {
+      for (const criterion of item.criteria) {
+        criteriaByKey.set(criterion.key, criterion);
+      }
+    }
+
+    return {
+      ...category,
+      criteria: Array.from(criteriaByKey.values()).sort(
+        (a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label, 'tr')
+      ),
+    };
+  });
+
+  return NextResponse.json(withInheritedCriteria);
 }
 
 export async function POST(request: Request) {
