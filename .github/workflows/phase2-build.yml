@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - phase2-foundation
+      - phase2-catalog-technical-forms
   workflow_dispatch:
 
 jobs:
