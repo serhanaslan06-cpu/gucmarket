@@ -1,13 +1,91 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const categoryId = searchParams.get('categoryId');
+  const supplierId = searchParams.get('supplierId');
+  const brandId = searchParams.get('brandId');
+  const minPrice = searchParams.get('minPrice');
+  const maxPrice = searchParams.get('maxPrice');
 
-export async function GET() {
+  const reserved = new Set(['categoryId', 'supplierId', 'brandId', 'minPrice', 'maxPrice']);
+  const technicalFilters = Array.from(searchParams.entries()).filter(([key]) => {
+    return !reserved.has(key) && !key.startsWith('min_') && !key.startsWith('max_');
+  });
+
+  const numericFilters = Array.from(searchParams.entries()).filter(([key]) => key.startsWith('min_') || key.startsWith('max_'));
+
+  let categoryIds: string[] | undefined;
+  if (categoryId) {
+    const categories = await prisma.category.findMany({
+      where: { active: true },
+      select: { id: true, parentId: true },
+    });
+    const childrenByParent = new Map<string, string[]>();
+    for (const category of categories) {
+      if (!category.parentId) continue;
+      const children = childrenByParent.get(category.parentId) ?? [];
+      children.push(category.id);
+      childrenByParent.set(category.parentId, children);
+    }
+    categoryIds = [categoryId];
+    for (let i = 0; i < categoryIds.length; i++) {
+      categoryIds.push(...(childrenByParent.get(categoryIds[i]) ?? []));
+    }
+  }
+
   const products = await prisma.product.findMany({
-    where: { status: { in: ['APPROVED', 'PUBLISHED'] } },
-    include: { category: true, supplier: true, brand: true, technical: { include: { criterion: true } } },
+    where: {
+      status: { in: ['APPROVED', 'PUBLISHED'] },
+      ...(categoryIds ? { categoryId: { in: categoryIds } } : {}),
+      ...(supplierId ? { supplierId } : {}),
+      ...(brandId ? { brandId } : {}),
+      ...(minPrice || maxPrice ? {
+        price: {
+          ...(minPrice ? { gte: minPrice } : {}),
+          ...(maxPrice ? { lte: maxPrice } : {}),
+        },
+      } : {}),
+    },
+    include: {
+      category: true,
+      supplier: true,
+      brand: true,
+      technical: { include: { criterion: true } },
+    },
     orderBy: { createdAt: 'desc' },
   });
-  return NextResponse.json(products);
+
+  const matchesTechnical = (product: typeof products[number]) => {
+    const values = new Map(product.technical.map(item => [item.criterion.key, item.value]));
+
+    for (const [key, expected] of technicalFilters) {
+      const actual = values.get(key);
+      if (actual == null) return false;
+      const criterion = product.technical.find(item => item.criterion.key === key)?.criterion;
+      if (!criterion) return false;
+
+      if (criterion.dataType === 'MULTISELECT') {
+        const selected = actual.split(',').map(v => v.trim());
+        if (!selected.includes(expected)) return false;
+      } else if (actual !== expected) {
+        return false;
+      }
+    }
+
+    for (const [key, bound] of numericFilters) {
+      const criterionKey = key.replace(/^(min|max)_/, '');
+      const actual = values.get(criterionKey);
+      if (actual == null) return false;
+      const actualNumber = Number(actual.replace(',', '.'));
+      const boundNumber = Number(bound.replace(',', '.'));
+      if (!Number.isFinite(actualNumber) || !Number.isFinite(boundNumber)) return false;
+      if (key.startsWith('min_') && actualNumber < boundNumber) return false;
+      if (key.startsWith('max_') && actualNumber > boundNumber) return false;
+    }
+
+    return true;
+  };
+
+  return NextResponse.json(products.filter(matchesTechnical));
 }
 
 export async function POST(request: Request) {
