@@ -31,10 +31,37 @@ export async function POST(request: Request) {
     const slugBase = (String(body.model || name)).toLocaleLowerCase('tr-TR').replace(/ı/g,'i').replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ş/g,'s').replace(/ö/g,'o').replace(/ç/g,'c').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
     const slug = slugBase + '-' + Date.now();
     const technical = body.technical && typeof body.technical === 'object' ? body.technical : {};
-    const criteria = await prisma.technicalCriterion.findMany({ where: { categoryId, active: true } });
+    const allCategories = await prisma.category.findMany({
+      where: { active: true },
+      select: { id: true, parentId: true },
+    });
+    const categoryById = new Map(allCategories.map(c => [c.id, c]));
+    const categoryChain: string[] = [];
+    let currentId: string | null = categoryId;
+    while (currentId) {
+      categoryChain.unshift(currentId);
+      currentId = categoryById.get(currentId)?.parentId ?? null;
+    }
+
+    const criteria = await prisma.technicalCriterion.findMany({
+      where: { categoryId: { in: categoryChain }, active: true },
+      orderBy: { sortOrder: 'asc' },
+    });
     const criterionByKey = new Map(criteria.map(c => [c.key, c]));
+
     for (const key of Object.keys(technical)) {
-      if (!criterionByKey.has(key)) return NextResponse.json({ error: `Geçersiz teknik özellik: ${key}` }, { status: 400 });
+      if (!criterionByKey.has(key)) {
+        return NextResponse.json({ error: `Geçersiz teknik özellik: ${key}` }, { status: 400 });
+      }
+    }
+
+    const requiredCriteria = criteria.filter(c => c.required);
+    for (const criterion of requiredCriteria) {
+      const raw = technical[criterion.key];
+      const missing = raw == null || raw === '' || (Array.isArray(raw) && raw.length === 0);
+      if (missing) {
+        return NextResponse.json({ error: `Zorunlu teknik özellik eksik: ${criterion.label}` }, { status: 400 });
+      }
     }
     const values = Object.entries(technical).flatMap(([key, raw]) => {
       const criterion = criterionByKey.get(key);
