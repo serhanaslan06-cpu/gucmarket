@@ -17,8 +17,6 @@ const categories = [
   ["Akü Kabinleri", "Raf ve kabin çözümleri", null],
 ];
 
-// These legacy child categories are now represented as technical form options.
-// They remain in the database but are deactivated so existing records are not deleted.
 const legacySubcategorySlugs = [
   "ups-kgk-online-ups", "ups-kgk-line-interactive-ups", "ups-kgk-offline-ups", "ups-kgk-moduler-ups", "ups-kgk-dinamik-ups",
   "akuler-vrla", "akuler-opzs", "akuler-opzv", "akuler-li-ion",
@@ -108,12 +106,8 @@ async function main() {
       create: { name, slug: slugify(name), description, sortOrder: i },
     });
     categoryMap.set(name, category);
+  }
 
-
-
-  // Legacy child categories such as Online/Dinamik/Modüler are now
-  // technical-form options, not category choices. Deactivate them instead
-  // of deleting them so existing references remain safe.
   await prisma.category.updateMany({
     where: { slug: { in: legacySubcategorySlugs } },
     data: { active: false },
