@@ -17,14 +17,16 @@ const categories = [
   ["Akü Kabinleri", "Raf ve kabin çözümleri", null],
 ];
 
-const subcategories = {
-  "UPS / KGK": ["Online UPS", "Line-Interactive UPS", "Offline UPS", "Modüler UPS", "Dinamik UPS"],
-  "Aküler": ["VRLA", "OPzS", "OPzV", "Li-ion"],
-  "OEM & Yedek Parçalar": ["IGBT", "Kondansatör", "Elektronik Kart", "Fan", "Kontaktör"],
-  "Solar / Güneş Enerjisi": ["Güneş Panelleri", "Solar İnverter", "BESS", "Şarj Kontrol Cihazları"],
-  "İnverter / Redresör": ["İnverter", "Redresör", "DC-DC", "AC-DC"],
-  "Akü Kabinleri": ["Akü Kabinleri", "Akü Rafları", "Outdoor Kabinler"],
-};
+// These legacy child categories are now represented as technical form options.
+// They remain in the database but are deactivated so existing records are not deleted.
+const legacySubcategorySlugs = [
+  "ups-kgk-online-ups", "ups-kgk-line-interactive-ups", "ups-kgk-offline-ups", "ups-kgk-moduler-ups", "ups-kgk-dinamik-ups",
+  "akuler-vrla", "akuler-opzs", "akuler-opzv", "akuler-li-ion",
+  "oem-yedek-parcalar-igbt", "oem-yedek-parcalar-kondansator", "oem-yedek-parcalar-elektronik-kart", "oem-yedek-parcalar-fan", "oem-yedek-parcalar-kontaktor",
+  "solar-gunes-enerjisi-gunes-panelleri", "solar-gunes-enerjisi-solar-inverter", "solar-gunes-enerjisi-bess", "solar-gunes-enerjisi-sarj-kontrol-cihazlari",
+  "inverter-redresor-inverter", "inverter-redresor-redresor", "inverter-redresor-dc-dc", "inverter-redresor-ac-dc",
+  "aku-kabinleri-aku-kabinleri", "aku-kabinleri-aku-raflari", "aku-kabinleri-outdoor-kabinler",
+];
 
 const forms = {
   "UPS / KGK": [
@@ -53,7 +55,7 @@ const forms = {
     ["batteryType","Akü Tipi","MULTISELECT",null,["VRLA","Li-ion"]],
     ["displayType","Ekran Tipi","MULTISELECT",null,["LCD","LED","Dokunmatik LCD","Grafik LCD","Ekran Yok","Diğer"]],
     ["parallelOperation","Paralel Çalışma","BOOLEAN",null,["Var","Yok"]],
-    ["modular","Modüler","BOOLEAN",null,["Var","Yok"]],
+    ["structureType","Yapı","SELECT",null,["Standart","Modüler"]],
   ],
   "Aküler": [
     ["batteryChemistry","Akü Teknolojisi","SELECT",null,["VRLA AGM","VRLA GEL","OPzS","Li-ion","Diğer"]],
@@ -107,16 +109,15 @@ async function main() {
     });
     categoryMap.set(name, category);
 
-    for (let j = 0; j < (subcategories[name] ?? []).length; j++) {
-      const childName = subcategories[name][j];
-      const childSlug = `${slugify(name)}-${slugify(childName)}`;
-      await prisma.category.upsert({
-        where: { slug: childSlug },
-        update: { name: childName, parentId: category.id, active: true, sortOrder: j },
-        create: { name: childName, slug: childSlug, parentId: category.id, sortOrder: j },
-      });
-    }
-  }
+
+
+  // Legacy child categories such as Online/Dinamik/Modüler are now
+  // technical-form options, not category choices. Deactivate them instead
+  // of deleting them so existing references remain safe.
+  await prisma.category.updateMany({
+    where: { slug: { in: legacySubcategorySlugs } },
+    data: { active: false },
+  });
 
   for (const [categoryName, criteria] of Object.entries(forms)) {
     const category = categoryMap.get(categoryName);
