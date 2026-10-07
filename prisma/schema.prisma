@@ -24,6 +24,34 @@ enum ProductStatus {
   PUBLISHED
 }
 
+enum CatalogProductStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  PUBLISHED
+  REJECTED
+}
+
+enum CatalogSourceType {
+  MANUFACTURER_WEBSITE
+  MANUFACTURER_PDF
+  MANUFACTURER_CATALOG
+  MANUAL
+}
+
+enum ImportRunStatus {
+  RUNNING
+  COMPLETED
+  PARTIAL
+  FAILED
+}
+
+enum SupplierOfferStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+}
+
 model Category {
   id          String     @id @default(cuid())
   name        String
@@ -37,6 +65,7 @@ model Category {
   children    Category[] @relation("CategoryTree")
   criteria    TechnicalCriterion[]
   products    Product[]
+  catalogProducts CatalogProduct[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
@@ -60,6 +89,7 @@ model TechnicalCriterion {
   active          Boolean           @default(true)
   options         CriterionOption[]
   values          ProductTechnicalValue[]
+  catalogValues   CatalogProductTechnicalValue[]
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 
@@ -86,6 +116,7 @@ model Supplier {
   slug      String    @unique
   active    Boolean   @default(true)
   products  Product[]
+  offers    SupplierOffer[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 }
@@ -96,8 +127,9 @@ model Brand {
   slug      String    @unique
   active    Boolean   @default(true)
   products  Product[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  catalogProducts CatalogProduct[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Product {
@@ -135,4 +167,110 @@ model ProductTechnicalValue {
 
   @@unique([productId, criterionId])
   @@index([criterionId, value])
+}
+
+model CatalogProduct {
+  id              String              @id @default(cuid())
+  categoryId      String
+  brandId         String?
+  name            String
+  model           String?
+  slug            String              @unique
+  description     String?
+  imageUrl        String?
+  sourceUrl       String?
+  sourceType      CatalogSourceType   @default(MANUFACTURER_WEBSITE)
+  sourceFetchedAt DateTime?
+  sourceHash      String?
+  status          CatalogProductStatus @default(DRAFT)
+  category        Category            @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  brand           Brand?              @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  technical       CatalogProductTechnicalValue[]
+  sources         CatalogProductSource[]
+  offers          SupplierOffer[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([categoryId, status])
+  @@index([brandId, status])
+  @@index([sourceType, status])
+}
+
+model CatalogProductTechnicalValue {
+  id              String             @id @default(cuid())
+  catalogProductId String
+  criterionId     String
+  value           String
+  catalogProduct  CatalogProduct    @relation(fields: [catalogProductId], references: [id], onDelete: Cascade)
+  criterion       TechnicalCriterion @relation(fields: [criterionId], references: [id], onDelete: Restrict)
+
+  @@unique([catalogProductId, criterionId])
+  @@index([criterionId, value])
+}
+
+model CatalogProductSource {
+  id              String        @id @default(cuid())
+  catalogProductId String
+  url             String
+  sourceType      CatalogSourceType
+  title           String?
+  fetchedAt       DateTime      @default(now())
+  contentHash     String?
+  catalogProduct  CatalogProduct @relation(fields: [catalogProductId], references: [id], onDelete: Cascade)
+
+  @@index([catalogProductId])
+  @@index([url])
+}
+
+model SupplierOffer {
+  id              String             @id @default(cuid())
+  supplierId      String
+  catalogProductId String
+  price           Decimal?           @db.Decimal(18, 2)
+  currency        String             @default("TRY")
+  deliveryDays    Int?
+  stockQuantity   Int?
+  note            String?
+  status          SupplierOfferStatus @default(DRAFT)
+  supplier        Supplier            @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  catalogProduct  CatalogProduct     @relation(fields: [catalogProductId], references: [id], onDelete: Cascade)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@unique([supplierId, catalogProductId])
+  @@index([catalogProductId, status])
+  @@index([supplierId, status])
+}
+
+model CatalogImportRun {
+  id            String          @id @default(cuid())
+  sourceName    String
+  baseUrl       String
+  status        ImportRunStatus @default(RUNNING)
+  startedAt     DateTime        @default(now())
+  finishedAt    DateTime?
+  discovered    Int             @default(0)
+  imported      Int             @default(0)
+  updated       Int             @default(0)
+  skipped       Int             @default(0)
+  failed        Int             @default(0)
+  errorMessage  String?
+  items         CatalogImportItem[]
+  createdAt     DateTime        @default(now())
+
+  @@index([sourceName, startedAt])
+}
+
+model CatalogImportItem {
+  id          String          @id @default(cuid())
+  runId       String
+  sourceUrl   String
+  model       String?
+  status      String
+  error       String?
+  rawPayload  Json?
+  run         CatalogImportRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId, status])
+  @@index([sourceUrl])
 }
