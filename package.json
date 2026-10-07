@@ -10,7 +10,8 @@
     "prebuild": "prisma generate",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "catalog:import:inform": "node scripts/import-inform-forte.mjs"
   },
   "dependencies": {
     "next": "latest",
