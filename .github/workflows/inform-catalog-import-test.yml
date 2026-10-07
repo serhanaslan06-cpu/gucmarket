@@ -48,8 +48,8 @@ jobs:
             where: { name: "FORTE" }
           });
           console.log({ catalogProductCount: count, forteCount: forte });
-          if (forte !== 14) {
-            throw new Error(`Beklenen 14 FORTE modeli yerine ${forte} kayıt bulundu.`);
+          if (forte !== 16) {
+            throw new Error(`Beklenen 16 FORTE modeli yerine ${forte} kayıt bulundu.`);
           }
           await prisma.$disconnect();
           NODE
