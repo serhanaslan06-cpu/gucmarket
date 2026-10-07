@@ -1,23 +1,28 @@
 'use client';
 
 import {useEffect,useMemo,useState} from 'react';
-import {products as fallbackProducts,categories as fallbackCategories,categoryCriteria,Criterion} from '@/lib/data';
+import {products as fallbackProducts,categories as fallbackCategories,categoryCriteria} from '@/lib/data';
 import ProductCard from '@/components/ProductCard';
 
 type FilterValue={min?:string;max?:string;values?:string[]};
-type DbCriterion={id:string;key:string;label:string;dataType:string;unit?:string|null;filterable?:boolean;options:{id:string;label:string;value:string}[]};
-type DbCategory={id:string;name:string;parentId?:string|null;criteria:DbCriterion[]};
+type DbCategory={id:string;name:string;parentId?:string|null;criteria:any[]};
+type CatalogProduct={id:string;name:string;brand:string;cat:string;spec:string;price:string;city:string;seller:string;technical:Record<string,any>};
+
+const HISTORY_KEY='gucmarket:viewed-products';
+function stableRank(id:string,seed:number){let value=seed;for(let i=0;i<id.length;i++)value=(value*31+id.charCodeAt(i))|0;return value>>>0;}
 
 export default function Products(){
  const [query,setQuery]=useState('');
  const [cat,setCat]=useState('Tüm kategoriler');
  const [brand,setBrand]=useState('Tüm markalar');
  const [criteriaFilters,setCriteriaFilters]=useState<Record<string,FilterValue>>({});
- const [allProducts,setAllProducts]=useState<any[]>(fallbackProducts);
+ const [allProducts,setAllProducts]=useState<CatalogProduct[]>(fallbackProducts as CatalogProduct[]);
  const [dbCategories,setDbCategories]=useState<DbCategory[]>([]);
  const [dbReady,setDbReady]=useState(false);
+ const [viewedIds,setViewedIds]=useState<string[]>([]);
 
  useEffect(()=>{
+   try{const stored=JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]');if(Array.isArray(stored))setViewedIds(stored.filter((id:any)=>typeof id==='string').slice(0,20));}catch{}
    Promise.all([
      fetch('/api/categories',{cache:'no-store'}).then(r=>r.ok?r.json():[]),
      fetch('/api/products',{cache:'no-store'}).then(r=>r.ok?r.json():[])
@@ -37,14 +42,10 @@ export default function Products(){
  const brands=[...new Set(allProducts.map(p=>p.brand).filter(Boolean))];
  const activeDbCategory=dbCategories.find(c=>c.name===cat);
  const activeCriteria:any[]=cat==='Tüm kategoriler'?[]:(activeDbCategory?.criteria||categoryCriteria[cat]||[]).filter((c:any)=>c.filterable!==false);
-
  const setFilter=(key:string,value:FilterValue)=>setCriteriaFilters(v=>({...v,[key]:value}));
  const getValues=(c:any)=>{
    const candidates=allProducts.filter(p=>cat==='Tüm kategoriler'||p.cat===cat);
-   const values=candidates.flatMap(p=>{
-     const value=(p.technical||{})[c.key];
-     return Array.isArray(value)?value.map(String):value==null?[]:[String(value)];
-   });
+   const values=candidates.flatMap(p=>{const value=(p.technical||{})[c.key];return Array.isArray(value)?value.map(String):value==null?[]:[String(value)];});
    return [...new Set(values)];
  };
 
@@ -56,8 +57,8 @@ export default function Products(){
    if(cat!=='Tüm kategoriler'&&p.cat!==cat)return false;
    const technical=p.technical||{};
    return activeCriteria.every((c:any)=>{
-     const filter=criteriaFilters[c.key]; if(!filter)return true;
-     const value=technical[c.key]; if(value==null)return false;
+     const filter=criteriaFilters[c.key];if(!filter)return true;
+     const value=technical[c.key];if(value==null)return false;
      if(c.dataType==='NUMBER'||c.type==='number'){
        const numeric=Number(value);
        if(filter.min!==undefined&&filter.min!==''&&numeric<Number(filter.min))return false;
@@ -65,7 +66,7 @@ export default function Products(){
        return true;
      }
      if(c.dataType==='MULTISELECT'||c.type==='multiselect'){
-       const selected=filter.values||[]; if(!selected.length)return true;
+       const selected=filter.values||[];if(!selected.length)return true;
        const productValues=Array.isArray(value)?value:String(value).split(',');
        return selected.some(v=>productValues.includes(v));
      }
@@ -73,6 +74,20 @@ export default function Products(){
      return !selected||String(value)===selected;
    });
  }),[query,cat,brand,criteriaFilters,activeCriteria,allProducts]);
+
+ const recommendations=useMemo(()=>{
+   const byId=new Map(allProducts.map(p=>[String(p.id),p]));
+   const history=viewedIds.map(id=>byId.get(id)).filter(Boolean) as CatalogProduct[];
+   const seed=Number(new Date().toISOString().slice(0,10).replaceAll('-',''));
+   return allProducts.map(p=>{
+     const similarity=history.reduce((score,seen)=>score+(p.id===seen.id?0:(p.cat===seen.cat?3:0)+(p.brand&&p.brand===seen.brand?2:0)),0);
+     const categoryBoost=!history&&cat!=='Tüm kategoriler'&&p.cat===cat?2:0;
+     return {product:p,score:similarity+categoryBoost,rank:stableRank(String(p.id),seed)};
+   }).filter(item=>!history.length||item.score>0)
+     .sort((a,b)=>b.score-a.score||a.rank-b.rank)
+     .slice(0,4).map(item=>item.product);
+ },[allProducts,viewedIds,cat]);
+ const recommendationTitle=viewedIds.length?'İncelediklerinize benzer':'Öne çıkan ürünler';
 
  const renderCriterion=(c:any)=>{
    const filter=criteriaFilters[c.key]||{};
@@ -86,9 +101,17 @@ export default function Products(){
  return <main className="container" style={{paddingTop:35}}>
    <h1>Ürün Kataloğu</h1><p style={{color:'var(--muted)'}}>Kategori seçildiğinde Admin tarafından tanımlanan teknik kriterler, veritabanındaki ürün değerleri üzerinden filtrelenir.</p>
    <div style={{marginTop:20}}><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Ürün, marka, model veya parça kodu ara..." style={{width:'100%',padding:14,border:'1px solid #d8deea',borderRadius:10}}/></div>
-   <div style={{display:'grid',gridTemplateColumns:'300px 1fr',gap:24,marginTop:25}}>
+   <div className="product-catalog-layout" style={{marginTop:25}}>
     <aside className="card" style={{padding:20}}><b>Filtreler</b><hr/><p>Kategori</p><select value={cat} onChange={e=>{setCat(e.target.value);setCriteriaFilters({})}} style={{width:'100%',padding:10}}><option>Tüm kategoriler</option>{categoryNames.map(x=><option key={x}>{x}</option>)}</select><p>Marka</p><select value={brand} onChange={e=>setBrand(e.target.value)} style={{width:'100%',padding:10}}><option>Tüm markalar</option>{brands.map(x=><option key={x}>{x}</option>)}</select>{cat!=='Tüm kategoriler'&&<><hr/><p style={{fontWeight:800}}>{cat} Teknik Filtreleri ({activeCriteria.length})</p>{activeCriteria.map(renderCriterion)}</>}<p style={{marginTop:18,color:'var(--muted)',fontSize:13}}>Gösterilen ürün: {filtered.length}</p>{dbReady&&dbCategories.length===0&&<p style={{fontSize:12,color:'var(--muted)'}}>DB kategorileri bulunamadı; mevcut demo kategori listesi gösteriliyor.</p>}</aside>
-    <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16}}>{filtered.map(p=><ProductCard key={p.id} p={p}/>)}</div>
+    <section className="product-results" aria-label="Ürünler">{filtered.length?<div className="product-results-grid">{filtered.map(p=><ProductCard key={p.id} p={p}/>)}</div>:<div className="card" style={{padding:24,color:'var(--muted)'}}>Aramanızla eşleşen ürün bulunamadı.</div>}</section>
+    <aside className="card product-recommendations" aria-label="Ürün önerileri">
+      <div style={{marginBottom:16}}><div style={{fontSize:12,fontWeight:800,color:'#17856f',letterSpacing:'.04em'}}>GÜÇMARKET SEÇKİSİ</div><h2 style={{fontSize:20,margin:'6px 0'}}>{recommendationTitle}</h2><p style={{fontSize:13,color:'var(--muted)',margin:0}}>{viewedIds.length?'Kategori ve marka benzerliğine göre seçildi.':'Sizin için seçtiğimiz ürünlere göz atın.'}</p></div>
+      {recommendations.length?recommendations.map(p=><article key={p.id} className="product-recommendation-item">
+        <Link href={`/products/${p.id}`} className="recommendation-link" onClick={()=>{try{const old=JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]');localStorage.setItem(HISTORY_KEY,JSON.stringify([String(p.id),...old.filter((id:string)=>id!==String(p.id))].slice(0,20)));}catch{}}}>
+          <div className="recommendation-thumb">▣</div><div style={{minWidth:0}}><div style={{fontSize:11,color:'#17856f',fontWeight:800}}>{p.cat}</div><strong className="recommendation-name">{p.name}</strong><div style={{fontSize:12,color:'var(--muted)',marginTop:4}}>{p.brand||p.seller}</div><div style={{fontSize:14,fontWeight:800,marginTop:6}}>{p.price}</div></div>
+        </Link>
+      </article>):<p style={{fontSize:13,color:'var(--muted)'}}>Öneri göstermek için ürün bulunamadı.</p>}
+    </aside>
    </div>
  </main>;
 }
