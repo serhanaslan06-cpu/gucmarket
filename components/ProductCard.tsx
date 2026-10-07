@@ -1,3 +1,5 @@
+'use client';
+
 import Link from 'next/link';
 
 const HISTORY_KEY='gucmarket:viewed-products';
