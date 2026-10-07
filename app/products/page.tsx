@@ -3,6 +3,7 @@
 import {useEffect,useMemo,useState} from 'react';
 import {products as fallbackProducts,categories as fallbackCategories,categoryCriteria} from '@/lib/data';
 import ProductCard from '@/components/ProductCard';
+import Link from 'next/link';
 
 type FilterValue={min?:string;max?:string;values?:string[]};
 type DbCategory={id:string;name:string;parentId?:string|null;criteria:any[]};
@@ -81,7 +82,7 @@ export default function Products(){
    const seed=Number(new Date().toISOString().slice(0,10).replaceAll('-',''));
    return allProducts.map(p=>{
      const similarity=history.reduce((score,seen)=>score+(p.id===seen.id?0:(p.cat===seen.cat?3:0)+(p.brand&&p.brand===seen.brand?2:0)),0);
-     const categoryBoost=!history&&cat!=='Tüm kategoriler'&&p.cat===cat?2:0;
+     const categoryBoost=!history.length&&cat!=='Tüm kategoriler'&&p.cat===cat?2:0;
      return {product:p,score:similarity+categoryBoost,rank:stableRank(String(p.id),seed)};
    }).filter(item=>!history.length||item.score>0)
      .sort((a,b)=>b.score-a.score||a.rank-b.rank)
