@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 
 type Category = { id: string; name: string; description?: string | null; parentId?: string | null; criteria: Criterion[] };
 type Criterion = { id: string; key: string; label: string; dataType: string; unit?: string | null; options: { id: string; label: string; value: string }[] };
@@ -96,9 +96,9 @@ export default function Admin() {
     setMessage('Ürün silindi.'); await refresh();
   };
 
-  const card: React.CSSProperties = {padding:22, marginTop:18};
-  const field: React.CSSProperties = {padding:11, width:'100%'};
-  const grid: React.CSSProperties = {display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(210px,1fr))', gap:12, alignItems:'end'};
+  const card: CSSProperties = {padding:22, marginTop:18};
+  const field: CSSProperties = {padding:11, width:'100%'};
+  const grid: CSSProperties = {display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(210px,1fr))', gap:12, alignItems:'end'};
 
   return <main className="container" style={{paddingTop:32,paddingBottom:60}}>
     <h1>GüçMarket Yönetim Paneli</h1>
