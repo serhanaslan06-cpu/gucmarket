@@ -1,0 +1,55 @@
+name: Inform Catalog Import Test
+
+on:
+  push:
+    branches:
+      - phase2-inform-catalog-import
+  workflow_dispatch:
+
+jobs:
+  import-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: gucmarket
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d gucmarket"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/gucmarket?schema=public
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm install
+      - run: npm run db:generate
+      - run: npm run db:push
+      - run: npm run db:seed
+      - run: npm run catalog:import:inform
+      - run: |
+          node --input-type=module <<'NODE'
+          import { PrismaClient } from "@prisma/client";
+          const prisma = new PrismaClient();
+          const count = await prisma.catalogProduct.count();
+          const forte = await prisma.catalogProduct.count({
+            where: { name: "FORTE" }
+          });
+          console.log({ catalogProductCount: count, forteCount: forte });
+          if (forte !== 14) {
+            throw new Error(`Beklenen 14 FORTE modeli yerine ${forte} kayıt bulundu.`);
+          }
+          await prisma.$disconnect();
+          NODE
