@@ -1,6 +1,9 @@
 name: Phase 2 Build Test
 
 on:
+  push:
+    branches:
+      - phase2-foundation
   workflow_dispatch:
 
 jobs:
