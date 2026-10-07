@@ -76,20 +76,23 @@ export default function Products(){
    });
  }),[query,cat,brand,criteriaFilters,activeCriteria,allProducts]);
 
- const recommendations=useMemo(()=>{
+ const recommendationData=useMemo(()=>{
    const byId=new Map(allProducts.map(p=>[String(p.id),p]));
    const history=viewedIds.map(id=>byId.get(id)).filter(Boolean) as CatalogProduct[];
    const seed=Number(new Date().toISOString().slice(0,10).replaceAll('-',''));
-   return allProducts.map(p=>{
+   const ranked=allProducts.map(p=>{
      const similarity=history.reduce((score,seen)=>score+(String(p.id)===String(seen.id)?0:(p.cat===seen.cat?3:0)+(p.brand&&p.brand===seen.brand?2:0)),0);
      const categoryBoost=!history.length&&cat!=='Tüm kategoriler'&&p.cat===cat?2:0;
      return {product:p,score:similarity+categoryBoost,rank:stableRank(String(p.id),seed)};
-   }).filter(item=>!history.length||item.score>0)
-     .sort((a,b)=>b.score-a.score||a.rank-b.rank)
-     .slice(0,4).map(item=>item.product);
+   }).sort((a,b)=>b.score-a.score||a.rank-b.rank);
+   const similar=ranked.filter(item=>item.score>0);
+   const unseen=ranked.filter(item=>!viewedIds.includes(String(item.product.id)));
+   const selected=history.length&&similar.length?similar:(unseen.length?unseen:ranked);
+   return {products:selected.slice(0,4).map(item=>item.product),personalized:Boolean(history.length&&similar.length)};
  },[allProducts,viewedIds,cat]);
- const hasMatchingHistory=allProducts.some(p=>viewedIds.includes(String(p.id)));
- const recommendationTitle=hasMatchingHistory?'İncelediklerinize benzer':'Öne çıkan ürünler';
+ const recommendations=recommendationData.products;
+ const recommendationTitle=recommendationData.personalized?'İncelediklerinize benzer':'Öne çıkan ürünler';
+ const hasMatchingHistory=recommendationData.personalized;
 
  const renderCriterion=(c:any)=>{
    const filter=criteriaFilters[c.key]||{};
