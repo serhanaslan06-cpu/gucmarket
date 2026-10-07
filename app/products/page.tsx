@@ -81,14 +81,15 @@ export default function Products(){
    const history=viewedIds.map(id=>byId.get(id)).filter(Boolean) as CatalogProduct[];
    const seed=Number(new Date().toISOString().slice(0,10).replaceAll('-',''));
    return allProducts.map(p=>{
-     const similarity=history.reduce((score,seen)=>score+(p.id===seen.id?0:(p.cat===seen.cat?3:0)+(p.brand&&p.brand===seen.brand?2:0)),0);
+     const similarity=history.reduce((score,seen)=>score+(String(p.id)===String(seen.id)?0:(p.cat===seen.cat?3:0)+(p.brand&&p.brand===seen.brand?2:0)),0);
      const categoryBoost=!history.length&&cat!=='Tüm kategoriler'&&p.cat===cat?2:0;
      return {product:p,score:similarity+categoryBoost,rank:stableRank(String(p.id),seed)};
    }).filter(item=>!history.length||item.score>0)
      .sort((a,b)=>b.score-a.score||a.rank-b.rank)
      .slice(0,4).map(item=>item.product);
  },[allProducts,viewedIds,cat]);
- const recommendationTitle=viewedIds.length?'İncelediklerinize benzer':'Öne çıkan ürünler';
+ const hasMatchingHistory=allProducts.some(p=>viewedIds.includes(String(p.id)));
+ const recommendationTitle=hasMatchingHistory?'İncelediklerinize benzer':'Öne çıkan ürünler';
 
  const renderCriterion=(c:any)=>{
    const filter=criteriaFilters[c.key]||{};
@@ -106,7 +107,7 @@ export default function Products(){
     <aside className="card" style={{padding:20}}><b>Filtreler</b><hr/><p>Kategori</p><select value={cat} onChange={e=>{setCat(e.target.value);setCriteriaFilters({})}} style={{width:'100%',padding:10}}><option>Tüm kategoriler</option>{categoryNames.map(x=><option key={x}>{x}</option>)}</select><p>Marka</p><select value={brand} onChange={e=>setBrand(e.target.value)} style={{width:'100%',padding:10}}><option>Tüm markalar</option>{brands.map(x=><option key={x}>{x}</option>)}</select>{cat!=='Tüm kategoriler'&&<><hr/><p style={{fontWeight:800}}>{cat} Teknik Filtreleri ({activeCriteria.length})</p>{activeCriteria.map(renderCriterion)}</>}<p style={{marginTop:18,color:'var(--muted)',fontSize:13}}>Gösterilen ürün: {filtered.length}</p>{dbReady&&dbCategories.length===0&&<p style={{fontSize:12,color:'var(--muted)'}}>DB kategorileri bulunamadı; mevcut demo kategori listesi gösteriliyor.</p>}</aside>
     <section className="product-results" aria-label="Ürünler">{filtered.length?<div className="product-results-grid">{filtered.map(p=><ProductCard key={p.id} p={p}/>)}</div>:<div className="card" style={{padding:24,color:'var(--muted)'}}>Aramanızla eşleşen ürün bulunamadı.</div>}</section>
     <aside className="card product-recommendations" aria-label="Ürün önerileri">
-      <div style={{marginBottom:16}}><div style={{fontSize:12,fontWeight:800,color:'#17856f',letterSpacing:'.04em'}}>GÜÇMARKET SEÇKİSİ</div><h2 style={{fontSize:20,margin:'6px 0'}}>{recommendationTitle}</h2><p style={{fontSize:13,color:'var(--muted)',margin:0}}>{viewedIds.length?'Kategori ve marka benzerliğine göre seçildi.':'Sizin için seçtiğimiz ürünlere göz atın.'}</p></div>
+      <div style={{marginBottom:16}}><div style={{fontSize:12,fontWeight:800,color:'#17856f',letterSpacing:'.04em'}}>GÜÇMARKET SEÇKİSİ</div><h2 style={{fontSize:20,margin:'6px 0'}}>{recommendationTitle}</h2><p style={{fontSize:13,color:'var(--muted)',margin:0}}>{hasMatchingHistory?'Kategori ve marka benzerliğine göre seçildi.':'Sizin için seçtiğimiz ürünlere göz atın.'}</p></div>
       {recommendations.length?recommendations.map(p=><article key={p.id} className="product-recommendation-item">
         <Link href={`/products/${p.id}`} className="recommendation-link" onClick={()=>{try{const old=JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]');localStorage.setItem(HISTORY_KEY,JSON.stringify([String(p.id),...old.filter((id:string)=>id!==String(p.id))].slice(0,20)));}catch{}}}>
           <div className="recommendation-thumb">▣</div><div style={{minWidth:0}}><div style={{fontSize:11,color:'#17856f',fontWeight:800}}>{p.cat}</div><strong className="recommendation-name">{p.name}</strong><div style={{fontSize:12,color:'var(--muted)',marginTop:4}}>{p.brand||p.seller}</div><div style={{fontSize:14,fontWeight:800,marginTop:6}}>{p.price}</div></div>
