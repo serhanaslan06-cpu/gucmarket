@@ -29,7 +29,7 @@ export default function Products(){
      fetch('/api/products',{cache:'no-store'}).then(r=>r.ok?r.json():[])
    ]).then(([cats,data])=>{
      if(Array.isArray(cats)&&cats.length)setDbCategories(cats);
-     if(Array.isArray(data))setAllProducts(data.map((p:any)=>({
+     if(Array.isArray(data)&&data.length>0)setAllProducts(data.map((p:any)=>({
        id:p.id,name:p.name,brand:p.brand?.name||'',cat:p.category?.name||'',spec:p.description||'',
        price:p.price?String(p.price)+' '+(p.currency||'TRY'):'Fiyat için teklif al',
        city:p.city||'',seller:p.supplier?.companyName||'',
