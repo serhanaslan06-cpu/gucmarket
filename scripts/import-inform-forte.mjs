@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
-import pdfParse from "pdf-parse";
 import * as cheerio from "cheerio";
+import { extractPdfText, parseForteModels } from "./inform-forte-pdf.mjs";
 
 const prisma = new PrismaClient();
 
@@ -51,72 +51,41 @@ async function fetchBuffer(url) {
   return Buffer.from(await response.arrayBuffer());
 }
 
-function extractImage(html) {
+function extractImage(html, powerKva, pageUrl) {
   const $ = cheerio.load(html);
-  const metaCandidates = [
+  const candidates = [
     $('meta[property="og:image"]').attr("content"),
     $('meta[name="twitter:image"]').attr("content"),
     $('meta[property="og:image:url"]').attr("content"),
-  ].filter(Boolean);
+  ].filter(Boolean).map((src) => ({ src, alt: "" }));
 
-  const imageCandidates = $("img")
+  candidates.push(...$("img")
     .map((_, el) => ({
       src: $(el).attr("src") || $(el).attr("data-src") || $(el).attr("data-lazy-src"),
       alt: $(el).attr("alt") || "",
     }))
     .get()
-    .filter((item) => item.src);
+    .filter((item) => item.src));
 
-  const ranked = imageCandidates
+  const expectedPower = new RegExp(`(^|\\D)${powerKva}\\s*(?:kva)?(?=\\D|$)`, "i");
+  const ranked = candidates
     .map((item) => ({
       ...item,
-      score:
-        (/(forte|inform)/i.test(item.alt) ? 10 : 0) +
-        (/(forte|inform)/i.test(item.src) ? 10 : 0),
+      resolvedUrl: new URL(item.src, pageUrl),
     }))
+    .map((item) => ({
+      ...item,
+      resolvedSrc: item.resolvedUrl.toString(),
+      score:
+        (expectedPower.test(item.alt) ? 100 : 0) +
+        (item.resolvedUrl.protocol !== "data:" && expectedPower.test(item.resolvedUrl.pathname) ? 100 : 0) +
+        (/(forte|inform)/i.test(item.alt) ? 10 : 0) +
+        (item.resolvedUrl.protocol !== "data:" && /(forte|inform)/i.test(item.resolvedUrl.pathname) ? 10 : 0),
+    }))
+    .filter((item) => item.score >= 100)
     .sort((a, b) => b.score - a.score);
 
-  return metaCandidates[0] || ranked[0]?.src || null;
-}
-
-function parseForteModels(text) {
-  const normalized = text
-    .replace(/\r/g, "")
-    .replace(/\u00a0/g, " ")
-    .replace(/[ \t]+/g, " ");
-
-  const modelCodes = [...normalized.matchAll(/FORTE\s+(\d{5})/gi)]
-    .map((m) => m[1])
-    .filter((value, index, arr) => arr.indexOf(value) === index);
-
-  const powerMatch = normalized.match(
-    /Çıkış\s+Gücü\s*\(kVA\)\s*([0-9\s]+)/i,
-  );
-
-  if (!modelCodes.length) {
-    throw new Error("FORTE PDF model kodları bulunamadı.");
-  }
-  if (!powerMatch) {
-    throw new Error("FORTE PDF çıkış gücü satırı bulunamadı.");
-  }
-
-  const powers = powerMatch[1]
-    .trim()
-    .split(/\s+/)
-    .map(Number)
-    .filter(Number.isFinite);
-
-  if (modelCodes.length !== powers.length) {
-    throw new Error(
-      `FORTE model/güç eşleşmesi hatalı: ${modelCodes.length} model, ${powers.length} güç.`,
-    );
-  }
-
-  return modelCodes.map((code, index) => ({
-    model: `FORTE ${code}`,
-    powerKva: powers[index],
-    activePowerKw: powers[index],
-  }));
+  return ranked[0]?.resolvedSrc || null;
 }
 
 function commonForteValues() {
@@ -148,13 +117,14 @@ async function getCriterionMap(categoryId) {
   return new Map(criteria.map((item) => [item.key, item.id]));
 }
 
-async function getImageUrl(powerKva, fallbackHtml) {
+async function getImageUrl(powerKva) {
   const pageUrl = IMAGE_PAGE_BY_POWER[powerKva];
   if (pageUrl) {
     try {
       const html = await fetchText(pageUrl);
-      const image = extractImage(html);
-      if (image) return new URL(image, pageUrl).toString();
+      const image = extractImage(html, powerKva, pageUrl);
+      if (image) return image;
+      console.warn(`Görsel model/güç ile doğrulanamadı (${powerKva} kVA); yanlış görsel kaydedilmeyecek.`);
     } catch (error) {
       console.warn(
         `Görüntü kaynağı okunamadı (${powerKva} kVA): ${error instanceof Error ? error.message : String(error)}`,
@@ -162,7 +132,7 @@ async function getImageUrl(powerKva, fallbackHtml) {
     }
   }
 
-  return extractImage(fallbackHtml);
+  return null;
 }
 
 async function upsertSource(catalogProductId, data) {
@@ -201,13 +171,10 @@ async function main() {
   });
 
   try {
-    const [productHtml, pdfBuffer] = await Promise.all([
-      fetchText(SOURCE.productUrl),
-      fetchBuffer(SOURCE.pdfUrl),
-    ]);
+    const pdfBuffer = await fetchBuffer(SOURCE.pdfUrl);
 
-    const pdf = await pdfParse(pdfBuffer);
-    const models = parseForteModels(pdf.text);
+    const pdfText = await extractPdfText(pdfBuffer);
+    const models = parseForteModels(pdfText);
 
     const category = await prisma.category.findUnique({
       where: { slug: "ups-kgk" },
@@ -228,7 +195,7 @@ async function main() {
     for (const item of models) {
       const slug = slugify(`inform-${item.model}`);
       const existing = await prisma.catalogProduct.findUnique({ where: { slug } });
-      const imageUrl = await getImageUrl(item.powerKva, productHtml);
+      const imageUrl = await getImageUrl(item.powerKva);
 
       const product = await prisma.catalogProduct.upsert({
         where: { slug },
@@ -289,7 +256,7 @@ async function main() {
         url: SOURCE.pdfUrl,
         sourceType: "MANUFACTURER_PDF",
         title: "İnform FORTE 10-600 kVA ürün broşürü",
-        contentHash: String(pdf.text.length),
+        contentHash: String(pdfText.length),
       });
 
       const imagePageUrl = IMAGE_PAGE_BY_POWER[item.powerKva];

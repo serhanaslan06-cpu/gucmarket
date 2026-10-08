@@ -11,26 +11,27 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
-    "catalog:import:inform": "node scripts/import-inform-forte.mjs"
+    "catalog:import:inform": "node scripts/import-inform-forte.mjs",
+    "test:inform-parser": "node scripts/test-inform-forte-parser.mjs"
   },
   "dependencies": {
-    "next": "latest",
-    "react": "latest",
-    "react-dom": "latest",
-    "lucide-react": "latest",
     "@prisma/client": "6.16.2",
-    "pdf-parse": "1.1.1",
-    "cheerio": "1.1.2"
+    "cheerio": "1.1.2",
+    "lucide-react": "latest",
+    "next": "latest",
+    "pdfjs-dist": "6.4.299",
+    "react": "latest",
+    "react-dom": "latest"
   },
   "devDependencies": {
-    "typescript": "latest",
+    "@tailwindcss/postcss": "latest",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
-    "tailwindcss": "latest",
-    "@tailwindcss/postcss": "latest",
     "postcss": "latest",
-    "prisma": "6.16.2"
+    "prisma": "6.16.2",
+    "tailwindcss": "latest",
+    "typescript": "latest"
   },
   "prisma": {
     "seed": "node prisma/seed.mjs"
